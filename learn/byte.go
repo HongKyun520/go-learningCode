@@ -14,4 +14,5 @@ func ByteTest() {
 	var str string = "this is string"
 	var bs []byte = []byte(str)
 	println(bs)
+
 }

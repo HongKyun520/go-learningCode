@@ -10,7 +10,7 @@ func Func1(a, b, c int) (string, error) {
 	return "", nil
 }
 
-// Func2 带名字的返回值，相当于在函数中创建一个局部变量，可以直接返回
+// Func2 带名字的返回值，相当于在"函数中" 创建一个局部变量，可以直接返回
 func Func2(a int, b int) (str string, err error) {
 	str = "result"
 	return

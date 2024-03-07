@@ -1,8 +1,7 @@
 package main
 
 import (
-	"GoInAction/learn/generics"
-	"fmt"
+	"GoInAction/learn"
 )
 
 // 常量
@@ -54,8 +53,11 @@ func main() {
 
 	//types.UserFish()
 
-	fmt.Println(generics.Sum[int](1, 2, 3))
-	fmt.Println(generics.Sum[float32](1.0, 2.0, 3.0))
-	fmt.Println(generics.Sum[int](1, 2, 3))
+	//fmt.Println(generics.Sum[int](1, 2, 3))
+	//fmt.Println(generics.Sum[float32](1.0, 2.0, 3.0))
+	//fmt.Println(generics.Sum[int](1, 2, 3))
+	//learn.StringTest()
+
+	learn.ByteTest()
 
 }

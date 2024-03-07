@@ -14,7 +14,6 @@ func Functional4() string {
 
 func Functional5(a int) {
 	fmt.Println("hello, functional 5")
-
 }
 
 func useFunctional4() {
@@ -69,7 +68,6 @@ func Func6Invoke() {
 // 为什么需要立刻发起调用？因为匿名，即没有名字，不立刻调用的话后面你都没办法调用了
 // 匿名方法在defer中用的较多
 func Func7() {
-
 	// 新定义了一个方法并调用，因为方法后面有()，赋值给了fn， fn是方法的返回值，是一个string
 	hello := func() string {
 		return ""
@@ -87,5 +85,10 @@ func functional8() {
 
 func Func8(abc string) (string, int) {
 	res := strings.Split(abc, "")
+	return res[0], len(res)
+}
+
+func Func9(str string) (string, int) {
+	res := strings.Split(str, "_")
 	return res[0], len(res)
 }

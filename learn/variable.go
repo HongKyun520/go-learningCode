@@ -34,7 +34,6 @@ const (
 )
 
 func variableTest() {
-
 	// 局部变量
 	var a int = 123
 	println(a)
