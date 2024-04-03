@@ -2,6 +2,7 @@ package main
 
 import (
 	"gorm.io/driver/mysql"
+
 	"gorm.io/gorm"
 )
 
@@ -21,19 +22,12 @@ func main() {
 	//})
 
 	// 使用MySQL
-	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:3306)/your_db"))
-
+	db, err := gorm.Open(mysql.Open("root:Kyun1024!@tcp(localhost:3306)/your_db"))
 	if err != nil {
 		panic("failed to connect database")
 	}
 
-	// 使用mysql
-
-	if err != nil {
-		panic("failed to connect database")
-	}
-
-	db.Debug()
+	db = db.Debug()
 
 	// 建表
 	// 表存在则改为一样
@@ -61,4 +55,5 @@ func main() {
 
 	// Delete - 删除 product
 	db.Delete(&product, 1)
+
 }

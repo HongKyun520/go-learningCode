@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+
+# 声明我这里配置的是Deployment
+kind: Deployment
+
+metadata:
+  # 也叫做 webook, 但这是一个 Deployment
+  name: webook
+
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: webook
+
+  template:
+    metadata:
+      labels:
+        # 因为上面selector里面我们找的是这个label
+        app: webook
+        # pod的具体规格说明
+    spec:
+      # pod里面运行的container
+      containers:
+        - name: webook
+          image: flycash/webook:v0.0.1
+          ports:
+            - # 在我们的main函数里面我写死了8080
+            - containerPort: 8080

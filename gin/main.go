@@ -6,7 +6,8 @@ import (
 )
 
 func main() {
-	// 创建server
+	// 创建server engine
+	// 路由注册、接入middleware
 	server := gin.Default()
 
 	// 注册路由

@@ -11,6 +11,7 @@ import (
 // 异常定义
 var ErrUserDuplicateEmail = repository.ErrUserDuplicateEmail
 var ErrInvalidUserOrPassword = errors.New("账号/邮箱或密码不对")
+var ErrUserNotFound = errors.New("用户邮箱不存在")
 
 type UserService struct {
 	repo *repository.UserRepository
@@ -42,7 +43,7 @@ func (svc *UserService) Login(ctx context.Context, email, password string) (doma
 
 	// 找不到用户
 	if err == repository.ErrUserNotFound {
-		return domain.User{}, ErrInvalidUserOrPassword
+		return domain.User{}, ErrUserNotFound
 	}
 
 	if err != nil {

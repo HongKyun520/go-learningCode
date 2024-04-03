@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -27,33 +28,40 @@ func main() {
 	// 不像spring框架可以直接手动注入
 
 	// 初始化数据库
-	db := initDB()
+	//db := initDB()
 
 	// 初始化用户
-	u := initUser(db)
+	//u := initUser(db)
 
 	// 初始化服务器
-	server := initWebServer()
+	//server := initWebServer()
 
 	// 将userHandler里面的路由注册进server
-	u.RegisterUsersRoutes(server)
-	server.Run(":8080")
+	//u.RegisterUsersRoutes(server)
+	//server.Run(":8080")
+
+	engine := gin.Default()
+	engine.GET("/hello", func(context *gin.Context) {
+		context.String(http.StatusOK, "hello world")
+	})
+
+	engine.Run("8080")
 }
 
 func initWebServer() *gin.Engine {
 	server := gin.Default()
 	// middleware相当于spring中的拦截器，起到一个请求前置处理的作用
-	server.Use(func(context *gin.Context) {
-		println("这是第一个middleware")
-	}, func(context *gin.Context) {
-		println("这是第二个middleware")
-	})
+	//server.Use(func(context *gin.Context) {
+	//	println("这是第一个middleware")
+	//}, func(context *gin.Context) {
+	//	println("这是第二个middleware")
+	//})
 
-	// 配置cors  配置一个middleware 作用于所有的方法 （类似Spring中的拦截器）
+	// 配置cors，解决跨域问题  配置一个middleware 作用于所有的方法 （类似Spring中的拦截器）
 	server.Use(cors.New(cors.Config{
 
 		// 允许的请求来源（一般填写域名）
-		AllowOrigins: []string{"https://localhost:8080"},
+		//AllowOrigins: []string{"https://localhost:8080"},
 		// 允许的请求方法 不写默认都支持
 
 		//AllowMethods: []string{"PUT", "PATCH", "POST"},
@@ -76,31 +84,37 @@ func initWebServer() *gin.Engine {
 	}))
 
 	// 下面使用了两个middleware，进行登录校验
-
 	store := cookie.NewStore([]byte("secret"))
 	server.Use(sessions.Sessions("mysession", store))
 
-	// 注册登录状态middleware
+	//注册登录状态middleware
 	server.Use(middleware.NewLoginMiddlewareBuilder().
-		IgnorePaths("/user/login").
-		IgnorePaths("/user/").Build())
+		IgnorePaths("/users/login").
+		IgnorePaths("/users/signup").Build())
 
 	return server
 }
 
 // 初始化用户
 func initUser(db *gorm.DB) *web.UserHandler {
+	// dao
 	ud := dao.NewUserDAO(db)
 
+	// repository
 	repo := repository.NewUserRepository(ud)
+
+	// service
 	svc := service.NewUserService(repo)
+
+	// controller
 	u := web.NewUserHandler(svc)
 	return u
 }
 
 // 初始化数据库
 func initDB() *gorm.DB {
-	db, err := gorm.Open(mysql.Open("root:root@tcp(localhost:13316)/webook"))
+	// 明文输入？
+	db, err := gorm.Open(mysql.Open("root:Kyun1024!@tcp(localhost:3306)/webook"))
 	if err != nil {
 		// panic表示该goroutine直接结束。只在main函数的初始化过程中，使用panic
 		// 一旦初始化过程出错，应用就不要启动了

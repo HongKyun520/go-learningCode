@@ -10,7 +10,7 @@ import (
 
 var (
 	ErrUserDuplicateEmail = errors.New("邮箱冲突")
-	ErrUserNotFound       = gorm.ErrRecordNotFound
+	ErrUserNotFound       = errors.New("该用户不存在")
 )
 
 type UserDAO struct {
@@ -33,7 +33,7 @@ func (dao *UserDAO) Insert(ctx context.Context, u User) error {
 	u.Ctime = milli
 	// 使用gorm插入一条数据，并将链路保持下去
 
-	// 获取mysql数据库的错误码
+	// 获取mysql数据库的错误码 唯一键冲突
 	err := dao.db.WithContext(ctx).Create(&u).Error
 	if mysqlErr, ok := err.(*mysql.MySQLError); ok {
 		const uniqueConflictsErrNo uint16 = 1062
@@ -45,10 +45,14 @@ func (dao *UserDAO) Insert(ctx context.Context, u User) error {
 	return err
 }
 
+// 根据email来查
 func (dao *UserDAO) FindByEmail(ctx context.Context, email string) (User, error) {
 	var u User
 	err1 := dao.db.WithContext(ctx).Where("email = ?", email).First(&u).Error
 	err1 = dao.db.WithContext(ctx).First(&u, "email = ?", email).Error
+	if errors.Is(err1, gorm.ErrRecordNotFound) {
+		return u, ErrUserNotFound
+	}
 
 	return u, err1
 }

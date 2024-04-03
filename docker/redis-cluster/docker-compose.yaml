@@ -1,0 +1,38 @@
+version: '3'
+
+services:
+  redis-1:
+    image: redis:6.0.9
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    ports:
+      - "7001:6379"
+
+  redis-2:
+    image: redis:6.0.9
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    ports:
+      - "7002:6379"
+
+  redis-3:
+    image: redis:6.0.9
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    ports:
+      - "7003:6379"
+
+  redis-4:
+    image: redis:6.0.9
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    ports:
+      - "7004:6379"
+
+  redis-5:
+    image: redis:6.0.9
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    ports:
+      - "7005:6379"
+
+  redis-6:
+    image: redis:6.0.9
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file nodes.conf --cluster-node-timeout 5000 --port 6379
+    ports:
+      - "7006:6379"

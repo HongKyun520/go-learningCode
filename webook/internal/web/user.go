@@ -39,10 +39,10 @@ func NewUserHandler(svc *service.UserService) *UserHandler {
 	}
 }
 
-// 路由注册 gin
+// gin的路由注册
 func (u *UserHandler) RegisterUsersRoutes(ctx *gin.Engine) {
-	group := ctx.Group("/user")
-	group.POST("/signUp", u.SignUp)
+	group := ctx.Group("/users")
+	group.POST("/signup", u.SignUp)
 	group.POST("/login", u.Login)
 	group.POST("/edit", u.Edit)
 	group.GET("/profit", u.Profile)
@@ -66,6 +66,7 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 	}
 
 	ok, err := u.emailExp.MatchString(req.Email)
+	// 正则表达式有误
 	if err != nil {
 		ctx.String(http.StatusOK, "系统错误")
 		return
@@ -81,7 +82,7 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 		return
 	}
 
-	ok, err = u.passwordExp.MatchString(req.Email)
+	ok, err = u.passwordExp.MatchString(req.Password)
 	if err != nil {
 		// 记录日志
 		ctx.String(http.StatusOK, "系统错误")
@@ -89,7 +90,7 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 	}
 
 	if !ok {
-		ctx.String(http.StatusOK, "密码必须大于8位，包含数字字符")
+		ctx.String(http.StatusOK, "密码必须大于8位，包含数字字符，且包含符号")
 		return
 	}
 
@@ -98,12 +99,6 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 		Email:    req.Email,
 		Password: req.Password,
 	})
-
-	// 最佳实践
-	//if errors.Is(err, service.ErrUserDuplicateEmail) {
-	//	ctx.String(http.StatusOK, "邮箱冲突")
-	//	return
-	//}
 
 	if err == service.ErrUserDuplicateEmail {
 		ctx.String(http.StatusOK, "邮箱冲突")
@@ -138,6 +133,11 @@ func (u *UserHandler) Login(ctx *gin.Context) {
 	user, err := u.svc.Login(ctx, req.Email, req.Password)
 	if err == service.ErrInvalidUserOrPassword {
 		ctx.String(http.StatusOK, "用户名或密码不对")
+		return
+	}
+
+	if err == service.ErrUserNotFound {
+		ctx.String(http.StatusOK, "用户不存在")
 		return
 	}
 
