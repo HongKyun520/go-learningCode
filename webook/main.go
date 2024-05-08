@@ -45,7 +45,7 @@ func main() {
 		context.String(http.StatusOK, "hello world")
 	})
 
-	engine.Run("8080")
+	engine.Run(":8080")
 }
 
 func initWebServer() *gin.Engine {

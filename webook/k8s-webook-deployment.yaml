@@ -3,27 +3,39 @@ apiVersion: apps/v1
 # 声明我这里配置的是Deployment
 kind: Deployment
 
+# 元数据
 metadata:
   # 也叫做 webook, 但这是一个 Deployment
-  name: webook
+  name: webook-kyun
 
+# 规格说明
 spec:
+  # 副本数量 3
   replicas: 3
   selector:
     matchLabels:
-      app: webook
+      app: webook-kyun
 
+# template描述的是你的pod是什么样的
   template:
     metadata:
       labels:
         # 因为上面selector里面我们找的是这个label
-        app: webook
+        app: webook-kyun
         # pod的具体规格说明
     spec:
       # pod里面运行的container
       containers:
-        - name: webook
+        - name: webook-kyun
           image: flycash/webook:v0.0.1
           ports:
-            - # 在我们的main函数里面我写死了8080
+            # 这里的监听端口对应了应用监听的端口
             - containerPort: 8080
+
+
+# k8s应用命令
+# kubectl apply -f k8s-webook-deployment.yaml  这将会在Kubernetes集群中创建或更新部署（Deployment）的配置，以确保集群中运行的应用程序与配置文件中定义的状态一致。
+
+# kubectl get deployments  查看deployments列表
+
+# 正常来讲不会直接访问pod，而是直接指向service，所以需要一个service

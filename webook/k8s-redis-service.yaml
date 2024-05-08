@@ -1,0 +1,19 @@
+# 部署单机redis就是一个deployment文件加上一个service文件
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: webook-live-redis
+spec:
+  selector:
+    app: webook-live-redis
+  ports:
+    - protocol: TCP
+      # port指的是service的端口
+      port: 11479
+      # targetPort指的是pod上的端口
+      targetPort: 6379
+      # nodePort是k8s集群外部访问端口
+      nodePort: 30003
+  type: NodePort
+  

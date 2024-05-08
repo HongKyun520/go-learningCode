@@ -1,0 +1,19 @@
+apiVersion: v1
+# PersistentVolumeClaim 这个用来说明k8s有哪些持久化存储volume
+
+kind: PersistentVolume
+metadata:
+  name: my-local-pv
+
+spec:
+  storageClassName: local-storage
+  capacity:
+    storage: 1Gi
+  accessModes:
+    - ReadWriteOnce
+
+  hostPath:
+    path: "/mnt/live"
+
+
+

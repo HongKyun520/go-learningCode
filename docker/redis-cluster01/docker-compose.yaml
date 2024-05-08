@@ -1,0 +1,38 @@
+version: '3.7'
+
+services:
+  redis-node1:
+    image: redis:6.0.9
+    ports:
+      - "7000:7000"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file /data/nodes.conf --cluster-node-timeout 5000 --port 7000 --cluster-announce-ip redis-node1 --cluster-announce-port 7000 --cluster-announce-bus-port 17000
+
+  redis-node2:
+    image: redis:6.0.9
+    ports:
+      - "7001:7001"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file /data/nodes.conf --cluster-node-timeout 5000 --port 7001 --cluster-announce-ip redis-node2 --cluster-announce-port 7001 --cluster-announce-bus-port 17001
+
+  redis-node3:
+    image: redis:6.0.9
+    ports:
+      - "7002:7002"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file /data/nodes.conf --cluster-node-timeout 5000 --port 7002 --cluster-announce-ip redis-node3 --cluster-announce-port 7002 --cluster-announce-bus-port 17002
+
+  redis-node4:
+    image: redis:6.0.9
+    ports:
+      - "7003:7003"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file /data/nodes.conf --cluster-node-timeout 5000 --port 7003 --cluster-announce-ip redis-node4 --cluster-announce-port 7003 --cluster-announce-bus-port 17003
+
+  redis-node5:
+    image: redis:6.0.9
+    ports:
+      - "7004:7004"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file /data/nodes.conf --cluster-node-timeout 5000 --port 7004 --cluster-announce-ip redis-node5 --cluster-announce-port 7004 --cluster-announce-bus-port 17004
+
+  redis-node6:
+    image: redis:6.0.9
+    ports:
+      - "7005:7005"
+    command: redis-server --appendonly yes --cluster-enabled yes --cluster-config-file /data/nodes.conf --cluster-node-timeout 5000 --port 7005 --cluster-announce-ip redis-node6 --cluster-announce-port 7005 --cluster-announce-bus-port 17005

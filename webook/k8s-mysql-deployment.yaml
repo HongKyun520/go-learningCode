@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webook-live-mysql
+  labels:
+    app: webook-live-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: webook-live-mysql
+  template:
+    metadata:
+      name: webook-live-mysql
+      labels:
+        app: webook-live-mysql
+    spec:
+      containers:
+        - name: webook-live-mysql
+          image: mysql:8.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              value: root
+          ports:
+            - containerPort: 3306
+
+          # 当前容器挂载的数据卷
+          volumeMounts:
+            - mountPath: /mysql
+              name: mysql-storage
+
+      # 整个pod的持久化卷声明 定义
+      volumes:
+        - name: mysql-storage
+          persistentVolumeClaim:
+            claimName: webook-mysql-live-claim
+        - name: hadoop-storage
+          persistentVolumeClaim:
+            claimName: hadoop-pvc
+
+
+
+      restartPolicy: Always
+
+# 持久化配置
+      

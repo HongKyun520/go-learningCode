@@ -1,23 +1,28 @@
 apiVersion: v1
 
-# 声明我这里配置的是Deployment
+# 声明我这里配置的是Service
 kind: Service
 
 metadata:
 # 代表这是我们的 webook本体
-  name: webook
+  name: webook-kyun
 
 # 规格说明，也即是详细说明这个服务是一个怎样的服务
 spec:
-  type: LoadBalancer
-  selector:
-    app: webook
 
-  # 你可以配置很多个，比如还可以额外配置一个HTTPS的
+  # 这里我们选择使用NodePort来暴露我们的服务
+  type: LoadBalancer
+
+  # 这里我们选择使用标签来选择我们的Pod
+  selector:
+    app: webook-kyun
+
+  # 这里我们声明我们的端口
   ports:
     - name: http
       port: 80
       protocol: TCP
       targetPort: 8080
+
 
       

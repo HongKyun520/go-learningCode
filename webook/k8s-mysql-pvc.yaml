@@ -1,0 +1,21 @@
+
+# Create a PersistentVolumeClaim (PVC) for the webook application.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: webook-mysql-live-claim
+  labels:
+    app: webook-mysql-live-claim
+spec:
+  storageClassName: local-storage
+  # Specify the storage class to use for the PVC
+  accessModes:
+    - ReadWriteMany
+
+  # Specify the storage capacity required by the application
+  resources:
+    requests:
+        storage: 1Gi
+
+
+  
