@@ -24,7 +24,6 @@ func (l *LoginMiddlewareBuilder) Build() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		// 不需要登录校验的
 		// 不需要登录状态校验的
-
 		// 从忽略中的paths取出遍历
 
 		for _, path := range l.ignorePaths {

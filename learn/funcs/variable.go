@@ -1,10 +1,12 @@
 package funcs
 
-func YourName(name string, aliases ...string) {
+import "fmt"
 
+func YourName(name string, aliases ...string) {
+	fmt.Println(name, aliases)
 }
 
-func callYourName() {
+func CallYourName() {
 
 	YourName("小米")
 	YourName("小米", "小明")

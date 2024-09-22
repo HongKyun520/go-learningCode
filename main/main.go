@@ -1,8 +1,6 @@
 package main
 
-import (
-	"GoInAction/learn"
-)
+import "GoInAction/learn/buildin_types"
 
 // 常量
 const PI = 3.14
@@ -21,7 +19,27 @@ var name = "gopher"
 */
 
 func main() {
-	//println("Hello World!")
+	println("Hello World!")
+
+	//a1 := DeferReturnStructV1()
+	//fmt.Println("DeferReturnStructV1:", a1.name) // 输出: Tom
+	//
+	//a2 := DeferReturnStructV2()
+	//fmt.Println("DeferReturnStructV2:", a2.name)
+
+	//DeferClosureLoopV3()
+	buildin_types.GetAllKeyAndValue()
+
+	//i := 32
+	//funcs.Defer()
+	//funcs.DeferClosureV1()
+	//funcs.DeferClosureV2()
+
+	//funcs.Recursive(2)
+
+	//println(learn.Global)
+	//println(learn.GlobalConst)
+
 	//learn.Extremum()
 	//learn.StringTest()
 	//learn.Defer()
@@ -58,6 +76,46 @@ func main() {
 	//fmt.Println(generics.Sum[int](1, 2, 3))
 	//learn.StringTest()
 
-	learn.ByteTest()
+	//learn.ByteTest()
+
+	//learn.StructTest()
+}
+
+type A struct {
+	name string
+}
+
+func DeferReturnStructV1() *A {
+	a := &A{
+		name: "a",
+	}
+	defer func() {
+		a.name = "Tom"
+	}()
+
+	return a
+}
+
+func DeferReturnStructV2() (a *A) {
+	a = &A{
+		name: "a",
+	}
+	defer func() {
+		a.name = "Tom"
+	}()
+
+	return a
+}
+
+func DeferClosureLoopV3() {
+
+	for i := 0; i < 10; i++ {
+		j := i
+
+		defer func() {
+			println(j)
+		}()
+
+	}
 
 }

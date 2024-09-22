@@ -8,5 +8,9 @@ type User struct {
 	Id       int64
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	CTime    time.Time
+
+	Phone    string
+	NickName string
+
+	CTime time.Time
 }

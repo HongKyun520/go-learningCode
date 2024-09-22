@@ -12,7 +12,8 @@ func StringTest() {
 	// 转义
 	println("He said:\"hello, go!\"")
 
-	println(`换行换行我可以换行`)
+	println(`换行换行我
+可以换行`)
 
 	println(len("abc"))
 

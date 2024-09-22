@@ -6,7 +6,7 @@ var internal = "局部变量"
 
 const internalConst = "包内可访问"
 
-const GlobalConst = "包外可访问"
+const GlobalConst = "全局变量，包外可访问"
 
 var (
 	GlobalVariable   = "1"

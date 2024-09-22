@@ -40,6 +40,11 @@ func main() {
 		c.String(http.StatusOK, "hello, 这是查询参数"+value)
 	})
 
+	server.GET("/items/*abc", func(context *gin.Context) {
+
+		context.String(http.StatusOK, "hello, 这是通配符路由")
+	})
+
 	// 显式指定端口
 	server.Run(":8080") // 监听并在0.0.0.0:8080 上启动服务
 }
