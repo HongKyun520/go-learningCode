@@ -31,6 +31,7 @@ func (dao *UserDAO) Insert(ctx context.Context, u User) error {
 	milli := time.Now().UnixMilli()
 	u.Utime = milli
 	u.Ctime = milli
+	u.Profile = "{}"
 	// 使用gorm插入一条数据，并将链路保持下去
 
 	// 获取mysql数据库的错误码 唯一键冲突
@@ -57,6 +58,17 @@ func (dao *UserDAO) FindByEmail(ctx context.Context, email string) (User, error)
 	return u, err1
 }
 
+func (dao *UserDAO) FindById(ctx context.Context, id int64) (User, error) {
+	var u User
+	err1 := dao.db.WithContext(ctx).Where("`id` = ?", id).First(&u).Error
+	err1 = dao.db.WithContext(ctx).First(&u, "`id` = ?", id).Error
+	if errors.Is(err1, gorm.ErrRecordNotFound) {
+		return u, ErrUserNotFound
+	}
+
+	return u, err1
+}
+
 // DAO层直接定义po对象，对应数据库表
 // 有些字段在数据库是JSON格式存储的，那么在domain里面就会被转为结构体
 // DAO层的字段需要加上gorm的定义
@@ -65,6 +77,10 @@ type User struct {
 	// 全局唯一索引
 	Email    string `gorm:"unique"`
 	Password string
+	NickName string
+	Phone    string
+	Birthday string
+	Profile  string `gorm:"type:json"`
 
 	// 创建时间，毫秒数
 	Ctime int64

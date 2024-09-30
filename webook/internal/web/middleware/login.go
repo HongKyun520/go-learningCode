@@ -1,10 +1,14 @@
 package middleware
 
 import (
+	"encoding/gob"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"time"
 )
+
+// 基于session实现的登录校验
 
 // 扩展性
 type LoginMiddlewareBuilder struct {
@@ -21,6 +25,9 @@ func (l *LoginMiddlewareBuilder) IgnorePaths(path string) *LoginMiddlewareBuilde
 }
 
 func (l *LoginMiddlewareBuilder) Build() gin.HandlerFunc {
+	// 用 Go 的方式编码解码
+	gob.Register(time.Now())
+
 	return func(ctx *gin.Context) {
 		// 不需要登录校验的
 		// 不需要登录状态校验的
@@ -39,5 +46,25 @@ func (l *LoginMiddlewareBuilder) Build() gin.HandlerFunc {
 			ctx.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
+
+		// 刷新token
+		updateTime := sess.Get("update_time")
+		sess.Set("userId", userId)
+		sess.Options(sessions.Options{
+			MaxAge: 60,
+		})
+
+		now := time.Now().UnixMilli()
+		if nil == updateTime {
+			sess.Set("update_time", now)
+		}
+
+		updateTimeVal := updateTime.(int64)
+
+		if now-updateTimeVal > 60*1000 {
+			sess.Set("update_time", now)
+			sess.Save()
+		}
+
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"GoInAction/webook/internal/repository"
 	"context"
 	"errors"
+	"github.com/redis/go-redis/v9"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -14,7 +15,8 @@ var ErrInvalidUserOrPassword = errors.New("账号/邮箱或密码不对")
 var ErrUserNotFound = errors.New("用户邮箱不存在")
 
 type UserService struct {
-	repo *repository.UserRepository
+	repo  *repository.UserRepository
+	redis *redis.Client
 }
 
 func NewUserService(repo *repository.UserRepository) *UserService {
@@ -34,7 +36,6 @@ func (svc *UserService) SignUp(ctx context.Context, u domain.User) error {
 
 	u.Password = string(pwd)
 	return svc.repo.Create(ctx, u)
-
 }
 
 func (svc *UserService) Login(ctx context.Context, email, password string) (domain.User, error) {
@@ -58,4 +59,11 @@ func (svc *UserService) Login(ctx context.Context, email, password string) (doma
 	}
 
 	return u, err
+}
+
+// todo edit
+
+// todo profile
+func (svc *UserService) Profile(ctx context.Context, id int64) (domain.User, error) {
+	return svc.repo.FindById(ctx, id)
 }
