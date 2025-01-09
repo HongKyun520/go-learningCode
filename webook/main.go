@@ -5,15 +5,19 @@ import (
 	"GoInAction/webook/internal/repository/cache"
 	"GoInAction/webook/internal/repository/dao"
 	"GoInAction/webook/internal/service"
+	"GoInAction/webook/internal/service/sms/memory"
 	"GoInAction/webook/internal/web"
 	"GoInAction/webook/internal/web/middleware"
+	"context"
+	"log"
+	"strings"
+	"time"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"strings"
-	"time"
 )
 
 // main方法需要自己手写很多东西
@@ -23,22 +27,20 @@ import (
 
 // 应用启动入口
 func main() {
-	// 需要手动初始化userHandler、userService、userRepository、userDao、mysqlDB ... 比较坑
-	// 不像spring框架可以直接手动注入
+
+	//初始化服务器（使用wire）
+	server := InitWebServer()
 
 	//初始化数据库
-	db := initDB()
+	// db := initDB()
 
 	//初始化用户控制器 controller -> service -> repository -> dao
-	u := initUser(db)
+	// u := initUser(db)
 
-	//初始化服务器
-	server := initWebServer()
-
-	//initRedis(server)
+	// initRedis(server)
 
 	//将userHandler里面的路由注册进server
-	u.RegisterUsersRoutes(server)
+	// u.RegisterUsersRoutes(server)
 	server.Run(":8080")
 
 	//engine := gin.Default()
@@ -118,13 +120,20 @@ func initWebServer() *gin.Engine {
 	//	IgnorePaths("/users/signup").Build())
 
 	// 使用JWT做验证
-	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
-		IgnorePaths("/users/loginJWT").
-		IgnorePaths("/users/signup").Build())
+	useJWT(server)
 
 	// middleware相当于spring中的拦截器，起到一个请求前置处理的作用 aop
 
 	return server
+}
+
+func useJWT(server *gin.Engine) {
+	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
+		IgnorePaths("/users/loginJWT").
+		IgnorePaths("/users/signup").
+		IgnorePaths("/users/login_sms/code/send").
+		IgnorePaths("/users/login_sms").
+		Build())
 }
 
 // 初始化用户 无自动注入
@@ -137,8 +146,14 @@ func initUser(db *gorm.DB) *web.UserHandler {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     "localhost:6379",
 		Password: "", // no password set
-		DB:       1,  // use default DB
+		DB:       0,  // use default DB
 	})
+
+	ctx := context.Background()
+	_, err := rdb.Ping(ctx).Result()
+	if err != nil {
+		log.Printf("Redis连接失败: %v", err)
+	}
 
 	userCache := cache.NewUserCache(rdb)
 
@@ -148,8 +163,13 @@ func initUser(db *gorm.DB) *web.UserHandler {
 	// service
 	svc := service.NewUserService(repo)
 
+	codeCache := cache.NewCodeCache(rdb)
+	codeRepo := repository.NewCodeRepository(codeCache)
+	smsSvc := memory.NewService()
+	codeSvc := service.NewCodeService(codeRepo, smsSvc)
+
 	// controller
-	u := web.NewUserHandler(svc)
+	u := web.NewUserHandler(svc, codeSvc)
 	return u
 }
 

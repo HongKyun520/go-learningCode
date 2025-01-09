@@ -10,7 +10,7 @@ metadata:
 
 # 规格说明
 spec:
-  # 副本数量 3
+  # 副本数量 3个pod
   replicas: 3
   selector:
     matchLabels:

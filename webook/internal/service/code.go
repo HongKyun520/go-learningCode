@@ -5,17 +5,41 @@ import (
 	"GoInAction/webook/internal/service/sms"
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 )
 
 const codeTplId = "123456"
 
-type CodeService struct {
-	repo   *repository.CodeRepository
+var (
+	ErrCodeVerifyTooManyTimes = repository.ErrCodeVerifyTooManyTimes
+	ErrCodeSendTooMany        = repository.ErrCodeSendTooMany
+)
+
+type CodeService interface {
+	Send(ctx context.Context,
+		biz string,
+		phone string) error
+	Verify(ctx context.Context,
+		biz string,
+		inputCode string,
+		phone string) (bool, error)
+}
+
+type cachedCodeService struct {
+	repo   repository.CodeRepository
 	smsSvc sms.Service
 }
 
-func (c *CodeService) Send(ctx context.Context,
+func NewCodeService(repo repository.CodeRepository, smsSvc sms.Service) CodeService {
+	return &cachedCodeService{
+		repo:   repo,
+		smsSvc: smsSvc,
+	}
+}
+
+// 发送验证码
+func (c *cachedCodeService) Send(ctx context.Context,
 	biz string,
 	phone string) error {
 
@@ -31,14 +55,15 @@ func (c *CodeService) Send(ctx context.Context,
 	// 发送短信
 	err = c.smsSvc.Send(ctx, codeTplId, []string{code}, phone)
 	if err != nil {
-
-		// 这里怎么办?
+		// 打印错误日志
+		log.Println("send sms failed, err: ", err)
 	}
 
 	return err
 }
 
-func (c *CodeService) Verify(ctx context.Context,
+// 验证验证码
+func (c *cachedCodeService) Verify(ctx context.Context,
 	biz string,
 	inputCode string,
 	phone string) (bool, error) {
@@ -46,7 +71,7 @@ func (c *CodeService) Verify(ctx context.Context,
 	return c.repo.Verify(ctx, biz, phone, inputCode)
 }
 
-func (c *CodeService) VerifyV1(ctx context.Context,
+func (c *cachedCodeService) VerifyV1(ctx context.Context,
 	biz string,
 	inputCode string,
 	phone string) error {
@@ -54,8 +79,9 @@ func (c *CodeService) VerifyV1(ctx context.Context,
 	return nil
 }
 
-func (c *CodeService) generateCode() string {
+// 生成验证码
+func (c *cachedCodeService) generateCode() string {
 	num := rand.Intn(1000000)
 
-	return fmt.Sprintf("%6d", num)
+	return fmt.Sprintf("%06d", num)
 }

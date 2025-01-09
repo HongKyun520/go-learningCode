@@ -1,7 +1,5 @@
 package main
 
-import "GoInAction/learn/buildin_types"
-
 // 常量
 const PI = 3.14
 
@@ -19,7 +17,32 @@ var name = "gopher"
 */
 
 func main() {
-	println("Hello World!")
+
+	naturals := make(chan int)
+
+	squares := make(chan int)
+
+	// 生成自然数
+	go func() {
+		for i := 0; i < 10; i++ {
+			naturals <- i
+		}
+		close(naturals)
+	}()
+
+	// 计算自然数的平方
+	go func() {
+		for natural := range naturals {
+			squares <- natural * natural
+		}
+		close(squares)
+	}()
+
+	for square := range squares {
+		println(square)
+	}
+
+	//println("Hello World!")
 
 	//a1 := DeferReturnStructV1()
 	//fmt.Println("DeferReturnStructV1:", a1.name) // 输出: Tom
@@ -28,7 +51,7 @@ func main() {
 	//fmt.Println("DeferReturnStructV2:", a2.name)
 
 	//DeferClosureLoopV3()
-	buildin_types.GetAllKeyAndValue()
+	//buildin_types.GetAllKeyAndValue()
 
 	//i := 32
 	//funcs.Defer()

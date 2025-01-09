@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
+
 	"github.com/redis/go-redis/v9"
+
+	_ "embed"
 )
-import _ "embed"
 
 var (
 	ErrCodeSendTooMany        = errors.New("发送太频繁")
@@ -15,24 +18,31 @@ var (
 )
 
 // 编译器会在编译的时候，把set_code的代码放进来这个luaSetCode里面
-// go:embed lua/set_code.lua
+//
+//go:embed lua/set_code.lua
 var luaSetCode string
 
-// go:embed lua/verify_code.lua
+//go:embed lua/verify_code.lua
 var luaVerifyCode string
 
-type CodeCache struct {
+type CodeCache interface {
+	Set(ctx context.Context, biz, phone, code string) error
+	Verify(ctx context.Context, biz, phone, inputCode string) (bool, error)
+}
+
+type RedisCodeCache struct {
 	client redis.Cmdable
 }
 
-func NewCodeCache(client redis.Cmdable) *CodeCache {
-	return &CodeCache{
+func NewCodeCache(client redis.Cmdable) CodeCache {
+	return &RedisCodeCache{
 		client: client,
 	}
 }
 
-func (c *CodeCache) Set(ctx context.Context, biz, phone, code string) error {
+func (c *RedisCodeCache) Set(ctx context.Context, biz, phone, code string) error {
 
+	log.Printf("luaSetCode: %s", luaSetCode)
 	result, err := c.client.Eval(ctx, luaSetCode, []string{c.Key(biz, phone)}, code).Int()
 	if err != nil {
 		return err
@@ -49,7 +59,7 @@ func (c *CodeCache) Set(ctx context.Context, biz, phone, code string) error {
 	}
 }
 
-func (c *CodeCache) Verify(ctx context.Context, biz, phone, inputCode string) (bool, error) {
+func (c *RedisCodeCache) Verify(ctx context.Context, biz, phone, inputCode string) (bool, error) {
 	result, err := c.client.Eval(ctx, luaVerifyCode, []string{c.Key(biz, phone)}, inputCode).Int()
 	if err != nil {
 		return false, err
@@ -67,6 +77,8 @@ func (c *CodeCache) Verify(ctx context.Context, biz, phone, inputCode string) (b
 	}
 }
 
-func (c *CodeCache) Key(biz, phone string) string {
+func (c *RedisCodeCache) Key(biz, phone string) string {
 	return fmt.Sprintf("phone_code:%s:%s", biz, phone)
 }
+
+// TODO: 本地缓存实现

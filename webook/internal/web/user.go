@@ -4,12 +4,13 @@ import (
 	"GoInAction/webook/internal/domain"
 	"GoInAction/webook/internal/service"
 	"fmt"
+	"net/http"
+	"time"
+
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"net/http"
-	"time"
 )
 
 // 正则表达式
@@ -27,17 +28,19 @@ const (
 // handler定义在哪，就在哪进行路由的注册
 
 type UserHandler struct {
-	svc         *service.UserService
+	svc         service.UserService
+	codeSvc     service.CodeService
 	emailExp    *regexp.Regexp
 	passwordExp *regexp.Regexp
 }
 
 // 预编译正则表达式
-func NewUserHandler(svc *service.UserService) *UserHandler {
+func NewUserHandler(svc service.UserService, codeSvc service.CodeService) *UserHandler {
 	return &UserHandler{
 		svc:         svc,
 		emailExp:    regexp.MustCompile(emailRegexPattern, regexp.None),
 		passwordExp: regexp.MustCompile(passwordRegexPattern, regexp.None),
+		codeSvc:     codeSvc,
 	}
 }
 
@@ -50,16 +53,118 @@ func (u *UserHandler) RegisterUsersRoutes(ctx *gin.Engine) {
 	group.POST("/edit", u.Edit)
 	group.POST("/editJWT", u.EditJWT)
 	group.GET("/profile", u.Profile)
+	group.POST("/login_sms/code/send", u.SendLoginSMSCode)
+	//group.POST("/login_sms/code/verify", u.VerifyLoginSMSCode)
+	group.POST("/login_sms", u.LoginSMSCode)
 }
 
-// SignUp 注册方法
-/**
-1、校验密码格式、邮箱格式
-2、入库
+/*
+*
+验证码发送
 */
-func (u *UserHandler) SignUp(ctx *gin.Context) {
+func (u *UserHandler) SendLoginSMSCode(ctx *gin.Context) {
 
-	// 定义结构体接受字段
+	type Req struct {
+		Phone string `json:"phone"`
+	}
+
+	const biz = "login"
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	err := u.codeSvc.Send(ctx, biz, req.Phone)
+
+	switch err {
+	case nil:
+		ctx.JSON(http.StatusOK, Result{
+			Code: 000000,
+			Msg:  "发送成功",
+		})
+
+	case service.ErrCodeSendTooMany:
+		ctx.JSON(http.StatusOK, Result{
+			Code: 100000,
+			Msg:  "发送太频繁，请稍后重试",
+		})
+
+	default:
+		ctx.JSON(http.StatusOK, Result{
+			Code: 100000,
+			Msg:  "系统错误",
+		})
+
+	}
+}
+
+func (u *UserHandler) LoginSMSCode(ctx *gin.Context) {
+
+	type Req struct {
+		Phone string `json:"phone"`
+		Code  string `json:"code"`
+	}
+
+	var req Req
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+
+	ok, err := u.codeSvc.Verify(ctx, bizLogin, req.Code, req.Phone)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 100000,
+			Msg:  "系统错误",
+		})
+		return
+	}
+
+	if !ok {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 100000,
+			Msg:  "验证码错误",
+		})
+		return
+	}
+
+	// 根据手机号查uid
+	user, err := u.svc.FindOrCreate(ctx, req.Phone)
+	if err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 100000,
+			Msg:  "系统错误",
+		})
+		return
+	}
+
+	// 设置jwt
+	if err = u.setJWTToken(ctx, user.Id); err != nil {
+		ctx.JSON(http.StatusOK, Result{
+			Code: 100000,
+			Msg:  "系统错误",
+		})
+		return
+	}
+
+	ctx.JSON(http.StatusOK, Result{
+		Code: 000000,
+		Msg:  "验证成功",
+	})
+
+}
+
+// SignUp 用户注册接口
+// 1. 校验邮箱格式是否合法
+// 2. 校验密码是否符合要求:
+//   - 长度大于8位
+//   - 包含数字和字母
+//   - 包含特殊符号
+//
+// 3. 校验两次输入密码是否一致
+// 4. 调用 service 层完成注册
+func (u *UserHandler) SignUp(ctx *gin.Context) {
+	// 请求参数结构体
 	type SingUpReq struct {
 		Email           string `json:"email"`
 		ConfirmPassword string `json:"confirmPassword"`
@@ -67,61 +172,57 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 	}
 
 	var req SingUpReq
-	// gin的参数绑定
-	// 解析错了，就会直接写回一个4xx的说明
-	// 校验情况
+	// 绑定请求参数,失败返回400状态码
 	if err := ctx.Bind(&req); err != nil {
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
 
+	// 校验邮箱格式
 	ok, err := u.emailExp.MatchString(req.Email)
-	// 正则表达式有误
 	if err != nil {
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
-
 	if !ok {
 		ctx.String(http.StatusOK, "你的邮箱格式不对")
 		return
 	}
 
+	// 校验两次密码是否一致
 	if req.Password != req.ConfirmPassword {
 		ctx.String(http.StatusOK, "两次输入的密码不一致")
 		return
 	}
 
+	// 校验密码强度
 	ok, err = u.passwordExp.MatchString(req.Password)
 	if err != nil {
-		// 记录日志
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
-
 	if !ok {
 		ctx.String(http.StatusOK, "密码必须大于8位，包含数字字符，且包含符号")
 		return
 	}
 
-	// 对象转换，然后调用一下svc的方法
+	// 调用 service 层完成注册
 	err = u.svc.SignUp(ctx, domain.User{
 		Email:    req.Email,
 		Password: req.Password,
 	})
 
+	// 处理注册结果
 	if err == service.ErrUserDuplicateEmail {
 		ctx.String(http.StatusOK, "邮箱冲突")
 		return
 	}
-
 	if err != nil {
 		ctx.String(http.StatusOK, "系统错误")
 		return
 	}
 
 	ctx.String(http.StatusOK, "注册成功")
-	// 数据库操作
 	fmt.Printf("%v", req)
 }
 
@@ -204,12 +305,25 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 		return
 	}
 
+	if err = u.setJWTToken(ctx, user.Id); err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+	fmt.Println(user)
+	// 设置serssion
+	ctx.String(http.StatusOK, "登录成功")
+	return
+
+}
+
+func (u *UserHandler) setJWTToken(ctx *gin.Context, uId int64) error {
 	claims := UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			// 设置登录态时间
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
 
-		Uid:       user.Id,
+		Uid:       uId,
 		UserAgent: ctx.Request.UserAgent(),
 	}
 
@@ -218,15 +332,11 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 	tokenStr, err := token.SignedString([]byte("k6CswdUm75WKcbM68UQUuxVsHSpTCwgK"))
 	if err != nil {
 		ctx.String(http.StatusInternalServerError, "系统错误")
+		return err
 	}
 	fmt.Println(tokenStr)
 	ctx.Header("x-jwt-token", tokenStr)
-	fmt.Println(user)
-
-	// 设置serssion
-	ctx.String(http.StatusOK, "登录成功")
-	return
-
+	return nil
 }
 
 // Edit 编辑方法
@@ -293,6 +403,16 @@ func (u *UserHandler) EditJWT(ctx *gin.Context) {
 
 // Profile
 // 查看用户个人信息
+// Profile 查看用户个人信息
+// @Summary 获取用户个人资料
+// @Description 根据用户ID获取用户的个人资料信息
+// @Tags 用户管理
+// @Accept json
+// @Produce json
+// @Success 200 {object} domain.User "用户信息"
+// @Failure 401 "未授权"
+// @Failure 500 "服务器内部错误"
+// @Router /users/profile [get]
 func (u *UserHandler) Profile(ctx *gin.Context) {
 
 	id := ctx.GetInt64("userId")
