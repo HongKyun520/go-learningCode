@@ -1,23 +1,16 @@
 package main
 
 import (
-	"GoInAction/webook/internal/repository"
-	"GoInAction/webook/internal/repository/cache"
-	"GoInAction/webook/internal/repository/dao"
-	"GoInAction/webook/internal/service"
-	"GoInAction/webook/internal/service/sms/memory"
-	"GoInAction/webook/internal/web"
-	"GoInAction/webook/internal/web/middleware"
-	"context"
 	"log"
-	"strings"
+	"net/http"
 	"time"
 
-	"github.com/gin-contrib/cors"
-	"github.com/gin-gonic/gin"
-	"github.com/redis/go-redis/v9"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
+	"github.com/fsnotify/fsnotify"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	_ "github.com/spf13/viper/remote"
+	"go.uber.org/zap"
 )
 
 // main方法需要自己手写很多东西
@@ -28,170 +21,159 @@ import (
 // 应用启动入口
 func main() {
 
+	// 初始化配置文件
+	initViperWatch()
+
+	// 初始化日志
+	initLogger()
+
+	// 初始化观测
+	initPrometheus()
+
 	//初始化服务器（使用wire）
 	server := InitWebServer()
 
-	//初始化数据库
-	// db := initDB()
-
-	//初始化用户控制器 controller -> service -> repository -> dao
-	// u := initUser(db)
-
-	// initRedis(server)
-
-	//将userHandler里面的路由注册进server
-	// u.RegisterUsersRoutes(server)
 	server.Run(":8080")
 
-	//engine := gin.Default()
-	//engine.GET("/hello", func(context *gin.Context) {
-	//	context.String(http.StatusOK, "hello world")
-	//})
-	//
-	//engine.Run(":8080")
 }
 
-func initWebServer() *gin.Engine {
-	server := gin.Default()
-	// middleware相当于spring中的拦截器，起到一个请求前置处理的作用
-	//server.Use(func(context *gin.Context) {
-	//	println("这是第一个middleware")
-	//}, func(context *gin.Context) {
-	//	println("这是第二个middleware")
-	//})
+// initLogger 初始化日志组件
+// 使用zap作为日志库
+// 开发环境使用NewDevelopment()创建logger
+// 如果创建失败则panic
+// 最后将创建的logger替换到全局logger
+func initLogger() {
+	// 创建开发环境的logger
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
 
-	//// 初始化redis客户端
-	//cmd := redis.NewClient(&redis.Options{
-	//	Addr:     "localhost:6379",
-	//	Password: "", // no password set
-	//	DB:       1,  // use default DB
-	//
-	//})
-	//
-	//// 设置限流
-	//server.Use(ratelimit.NewBuilder(cmd, time.Minute, 10).Build())
-
-	// 配置cors，解决跨域问题  配置一个middleware 作用于所有的方法 （类似Spring中的拦截器）
-	server.Use(cors.New(cors.Config{
-
-		// 允许的请求来源（一般填写域名）
-		//AllowOrigins: []string{"https://localhost:8080"},
-		// 允许的请求方法 不写默认都支持
-
-		//AllowMethods: []string{"PUT", "PATCH", "POST"},
-
-		// 允许的请求携带的请求头
-		AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
-
-		// 允许暴露的响应头
-		ExposeHeaders: []string{"x-jwt-token"},
-
-		// 是否允许携带cookie之类的东西
-		AllowCredentials: true,
-
-		// 自定义路由策略，使用方法进行扩展
-		AllowOriginFunc: func(origin string) bool {
-			// 测试环境
-			if strings.HasPrefix(origin, "http://localhost") {
-				return true
-			}
-
-			return strings.Contains(origin, "your domain")
-		},
-		// preflight请求有效期
-		MaxAge: 12 * time.Hour,
-	}))
-
-	// 下面使用了两个middleware，进行登录校验
-	//store := cookie.NewStore([]byte("secret"))
-
-	//store, err := redis.NewStore(16, "tcp", "localhost:6379", "", []byte("k6CswdUm75WKcbM68UQUuxVsHSpTCwgK"), []byte("k6CswdUm75WKcbM68UQUuxVsHSpTCwgA"))
-
-	//store, err := cookie.NewStore([]byte("k6CswdUm75WKcbM68UQUuxVsHSpTCwgK"), []byte("k6CswdUm75WKcbM68UQUuxVsHSpTCwgA"))
-	//if err != nil {
-	//	panic(err)
-	//}
-
-	//server.Use(sessions.Sessions("mysession", store))
-
-	//注册登录状态middleware
-	//server.Use(middleware.NewLoginMiddlewareBuilder().
-	//	IgnorePaths("/users/login").
-	//	IgnorePaths("/users/signup").Build())
-
-	// 使用JWT做验证
-	useJWT(server)
-
-	// middleware相当于spring中的拦截器，起到一个请求前置处理的作用 aop
-
-	return server
+	// 替换全局的logger
+	zap.ReplaceGlobals(logger)
 }
 
-func useJWT(server *gin.Engine) {
-	server.Use(middleware.NewLoginJWTMiddlewareBuilder().
-		IgnorePaths("/users/loginJWT").
-		IgnorePaths("/users/signup").
-		IgnorePaths("/users/login_sms/code/send").
-		IgnorePaths("/users/login_sms").
-		Build())
-}
+func initViperWatch() {
 
-// 初始化用户 无自动注入
-func initUser(db *gorm.DB) *web.UserHandler {
-	// dao
-	ud := dao.NewUserDAO(db)
+	// 可选参数，默认值为config/dev.yaml。实现在不同环境下读取不同的配置文件
+	cflag := pflag.String("config", "config/dev.yaml", "配置文件路径")
 
-	// redis
+	// 解析
+	pflag.Parse()
 
-	rdb := redis.NewClient(&redis.Options{
-		Addr:     "localhost:6379",
-		Password: "", // no password set
-		DB:       0,  // use default DB
+	log.Println("启动参数", *cflag)
+
+	// 设置配置文件名
+	viper.SetConfigFile(*cflag)
+
+	// 设置配置文件类型
+	viper.SetConfigType("yaml")
+
+	// 监听配置文件变化
+	viper.WatchConfig()
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		log.Println("配置文件变化", viper.GetString("test.name"))
 	})
 
-	ctx := context.Background()
-	_, err := rdb.Ping(ctx).Result()
+	// 读取配置文件
+	err := viper.ReadInConfig()
 	if err != nil {
-		log.Printf("Redis连接失败: %v", err)
+		panic(err)
 	}
 
-	userCache := cache.NewUserCache(rdb)
-
-	// repository
-	repo := repository.NewUserRepository(ud, userCache)
-
-	// service
-	svc := service.NewUserService(repo)
-
-	codeCache := cache.NewCodeCache(rdb)
-	codeRepo := repository.NewCodeRepository(codeCache)
-	smsSvc := memory.NewService()
-	codeSvc := service.NewCodeService(codeRepo, smsSvc)
-
-	// controller
-	u := web.NewUserHandler(svc, codeSvc)
-	return u
+	log.Println(viper.GetString("test.name"))
 }
 
-// 初始化数据库
-func initDB() *gorm.DB {
-	// mysql连接地址 这里只是本地环境的连法
-	db, err := gorm.Open(mysql.Open("root@tcp(localhost:3306)/webook"))
+func initViper() {
 
-	// mysql连接地址，这里是k8s内部的连接法，pod与pod之间通过service的name和port进行连接
-	//db, err := gorm.Open(mysql.Open("root:root@tcp(webook-live-mysql:11309)/webook"))
-	if err != nil {
-		// panic表示该goroutine直接结束。只在main函数的初始化过程中，使用panic
-		// 一旦初始化过程出错，应用就不要启动了
-		panic(err)
-	}
+	// 设置配置文件名
+	viper.SetConfigName("dev")
 
-	// 初始化表结构
-	err = dao.InitTable(db)
+	// 设置配置文件类型
+	viper.SetConfigType("yaml")
 
+	// 当前目录下的config目录
+	viper.AddConfigPath("config")
+
+	err := viper.ReadInConfig()
 	if err != nil {
 		panic(err)
 	}
 
-	return db
+	log.Println(viper.GetString("test.name"))
+}
+
+func initViperV1() {
+
+	// 可选参数，默认值为config/dev.yaml。实现在不同环境下读取不同的配置文件
+	cflag := pflag.String("config", "config/dev.yaml", "配置文件路径")
+
+	// 解析
+	pflag.Parse()
+
+	log.Println("启动参数", *cflag)
+
+	// 设置配置文件名
+	viper.SetConfigFile(*cflag)
+
+	// 设置配置文件类型
+	viper.SetConfigType("yaml")
+
+	// 读取配置文件
+	err := viper.ReadInConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println(viper.GetString("test.name"))
+
+}
+
+func initViperRemote() {
+
+	// 设置etcd地址
+	// 第一个参数是远程配置类型,这里使用etcd3
+	// 第二个参数是etcd的访问地址,这里使用本地地址和端口12379
+	// 第三个参数是配置在etcd中的key路径,这里使用/webook
+	err := viper.AddRemoteProvider("etcd3", "http://127.0.0.1:12379", "/webook")
+	if err != nil {
+		panic(err)
+	}
+
+	// 设置配置文件类型
+	viper.SetConfigType("yaml")
+
+	// 读取配置文件
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		log.Println("配置文件变化", viper.GetString("test.name"))
+	})
+	err = viper.ReadRemoteConfig()
+	if err != nil {
+		panic(err)
+	}
+
+	log.Println(viper.GetString("test.name"))
+
+	// 监听配置文件变化
+	go func() {
+		for {
+			err := viper.WatchRemoteConfig()
+			if err != nil {
+				panic(err)
+			}
+			log.Println("配置文件变化", viper.GetString("test.name"))
+			time.Sleep(time.Second * 10)
+		}
+	}()
+
+}
+
+func initPrometheus() {
+	go func() {
+		http.Handle("/metrics", promhttp.Handler())
+		err := http.ListenAndServe(":8081", nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
 }

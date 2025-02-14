@@ -6,7 +6,6 @@ import (
 )
 
 // 切片作业
-
 var ErrIndexOutOfRange = errors.New("下标超出范围")
 
 // DeleteAt 删除指定位置的元素

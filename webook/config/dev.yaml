@@ -1,0 +1,18 @@
+test:
+  name: tes1123
+  age: 18
+  email: test@test.com
+  password: test123456
+  phone: 12345678901
+  address: test123456
+
+# 数据库配置
+db:
+  dsn: root:Kyun1024!@tcp(localhost:3306)/webook?charset=utf8mb4&parseTime=True&loc=Asia%2FShanghai
+
+# redis配置
+redis:
+  addr: localhost:6379
+  password: 
+  db: 0
+  pool_size: 10

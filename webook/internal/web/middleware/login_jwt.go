@@ -3,21 +3,24 @@ package middleware
 import (
 	"GoInAction/webook/internal/web"
 	"encoding/gob"
+	"net/http"
+	"time"
+
+	ijwt "GoInAction/webook/internal/web/jwt"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	"net/http"
-	"strings"
-	"time"
 )
 
 // 基于jwt实现的登录校验
-
 type LoginJWTMiddlewareBuilder struct {
 	ignorePaths []string
+	handler     ijwt.Handler
 }
 
-func NewLoginJWTMiddlewareBuilder() *LoginJWTMiddlewareBuilder {
-	return &LoginJWTMiddlewareBuilder{}
+func NewLoginJWTMiddlewareBuilder(handler ijwt.Handler) *LoginJWTMiddlewareBuilder {
+	return &LoginJWTMiddlewareBuilder{
+		handler: handler,
+	}
 }
 
 func (l *LoginJWTMiddlewareBuilder) IgnorePaths(path string) *LoginJWTMiddlewareBuilder {
@@ -41,19 +44,7 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 		}
 
 		// 获取jwt
-		tokenHeader := ctx.GetHeader("Authorization")
-		if tokenHeader == "" {
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		segs := strings.Split(tokenHeader, " ")
-		if len(segs) != 2 || segs[0] != "Bearer" {
-			ctx.AbortWithStatus(http.StatusUnauthorized)
-			return
-		}
-
-		tokenStr := segs[1]
+		tokenStr := web.ExtractToken(ctx)
 
 		claims := &web.UserClaims{}
 
@@ -80,6 +71,5 @@ func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc {
 
 		// 设置uid
 		ctx.Set("userId", claims.Uid)
-
 	}
 }

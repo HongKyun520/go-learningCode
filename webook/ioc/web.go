@@ -3,7 +3,14 @@ package ioc
 import (
 	"GoInAction/webook/internal/web"
 	"GoInAction/webook/internal/web/middleware"
-	"GoInAction/webook/pkg/ginx/middlewares/ratelimit"
+
+	// "GoInAction/webook/internal/web/middleware"
+	"GoInAction/webook/pkg/ginx/middlewares/prometheus"
+	"GoInAction/webook/pkg/logger"
+
+	// "GoInAction/webook/pkg/ginx/middlewares/ratelimit"
+	// "GoInAction/webook/pkg/limiter"
+	ijwt "GoInAction/webook/internal/web/jwt"
 	"strings"
 	"time"
 
@@ -12,17 +19,32 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func InitWebServer(mdls []gin.HandlerFunc, userHdl *web.UserHandler) *gin.Engine {
+func InitWebServer(mdls []gin.HandlerFunc,
+	userHdl *web.UserHandler,
+	oauth2Hdl *web.OAuth2WechatHandler,
+	artHdl *web.ArticleHandler) *gin.Engine {
 	server := gin.Default()
 	server.Use(mdls...)
 	userHdl.RegisterUsersRoutes(server)
+	oauth2Hdl.RegisterRoutes(server)
+	artHdl.RegisterRoutes(server)
 	return server
 }
 
-func InitMiddlewares(redisClient redis.Cmdable) []gin.HandlerFunc {
-	return []gin.HandlerFunc{
-		cors.New(cors.Config{
+// 初始化中间件
+func InitMiddlewares(redisClient redis.Cmdable, l logger.Logger, handler ijwt.Handler) []gin.HandlerFunc {
 
+	pb := &prometheus.Builder{
+		NameSpace:  "geektime_daming",
+		Subsystem:  "webook",
+		Name:       "gin_http",
+		InstanceId: "1234567890",
+	}
+
+	return []gin.HandlerFunc{
+
+		// 解决跨域问题
+		cors.New(cors.Config{
 			// 允许的请求来源（一般填写域名）
 			//AllowOrigins: []string{"https://localhost:8080"},
 			// 允许的请求方法 不写默认都支持
@@ -33,7 +55,7 @@ func InitMiddlewares(redisClient redis.Cmdable) []gin.HandlerFunc {
 			AllowHeaders: []string{"Origin", "Content-Type", "Authorization"},
 
 			// 允许暴露的响应头
-			ExposeHeaders: []string{"x-jwt-token"},
+			ExposeHeaders: []string{"x-jwt-token", "x-refresh-token"},
 
 			// 是否允许携带cookie之类的东西
 			AllowCredentials: true,
@@ -50,15 +72,35 @@ func InitMiddlewares(redisClient redis.Cmdable) []gin.HandlerFunc {
 			// preflight请求有效期
 			MaxAge: 12 * time.Hour,
 		}),
+
+		// 打印请求日志
 		func(ctx *gin.Context) {
 			println("这是我的middleware")
 		},
-		ratelimit.NewBuilder(redisClient, time.Minute, 1000).Build(),
-		(&middleware.LoginJWTMiddlewareBuilder{}).
-			IgnorePaths("/users/loginJWT").
-			IgnorePaths("/users/signup").
-			IgnorePaths("/users/login_sms/code/send").
-			IgnorePaths("/users/login_sms").
-			Build(),
+
+		// 限流
+		// ratelimit.NewBuilder(limiter.NewRedisSlideWindowLimiter(redisClient, time.Minute, 1000)).Build(),
+
+		// 登录校验
+		// (&middleware.LoginJWTMiddlewareBuilder{}).
+		// 	IgnorePaths("/users/loginJWT").
+		// 	IgnorePaths("/users/signup").
+		// 	IgnorePaths("/users/login").
+		// 	IgnorePaths("/users/login_sms/code/send").
+		// 	IgnorePaths("/users/login_sms").
+		// 	IgnorePaths("/oauth2/wechat/authurl").
+		// 	IgnorePaths("/oauth2/wechat/callback").
+		// 	Build(),
+		pb.BuildResponseTime(),
+		pb.BuildActiveRequests(),
+
+		middleware.NewLogMiddlewareBuilder(func(ctx *gin.Context, al middleware.AccessLog) {
+			l.Debug("access log", logger.Field{
+				Key:   "request",
+				Value: al,
+			})
+		}).AllowReqBody().AllowRespBody().Build(),
+
+		middleware.NewLoginJWTMiddlewareBuilder(handler).Build(),
 	}
 }

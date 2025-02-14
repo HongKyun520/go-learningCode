@@ -38,6 +38,8 @@ func NewService(client *sms.Client, appId string, signName string) *Service {
 // args 短信模板参数
 // phone 接收短信的手机号列表
 func (s *Service) Send(ctx context.Context, tql string, args []string, phone ...string) error {
+
+	// 创建发送短信请求
 	// 创建发送短信请求
 	req := sms.NewSendSmsRequest()
 

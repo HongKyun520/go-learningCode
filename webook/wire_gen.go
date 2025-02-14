@@ -12,15 +12,22 @@ import (
 	"GoInAction/webook/internal/repository/dao"
 	"GoInAction/webook/internal/service"
 	"GoInAction/webook/internal/web"
+	"GoInAction/webook/internal/web/jwt"
 	"GoInAction/webook/ioc"
 	"github.com/gin-gonic/gin"
+)
+
+import (
+	_ "github.com/spf13/viper/remote"
 )
 
 // Injectors from wire.go:
 
 func InitWebServer() *gin.Engine {
 	cmdable := ioc.InitRedis()
-	v := ioc.InitMiddlewares(cmdable)
+	logger := ioc.InitLogger()
+	handler := jwt.NewRedisJWTHandler(cmdable)
+	v := ioc.InitMiddlewares(cmdable, logger, handler)
 	db := ioc.InitDB()
 	userDAO := dao.NewUserDAO(db)
 	userCache := cache.NewUserCache(cmdable)
@@ -31,6 +38,13 @@ func InitWebServer() *gin.Engine {
 	smsService := ioc.InitSmsService()
 	codeService := service.NewCodeService(codeRepository, smsService)
 	userHandler := web.NewUserHandler(userService, codeService)
-	engine := ioc.InitWebServer(v, userHandler)
+	wechatService := ioc.InitWechatService()
+	oAuth2WechatHandler := web.NewOAuth2WechatHandler(wechatService, userService)
+	articleDAO := dao.NewArticleGORMDAO(db)
+	articleCache := cache.NewArticleRedisCache(cmdable)
+	articleRepository := repository.NewCacheArticleRepository(articleDAO, articleCache, userRepository)
+	articleService := service.NewArticleService(articleRepository)
+	articleHandler := web.NewArticleHandler(articleService, logger)
+	engine := ioc.InitWebServer(v, userHandler, oAuth2WechatHandler, articleHandler)
 	return engine
 }

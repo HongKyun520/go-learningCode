@@ -1,5 +1,7 @@
 package main
 
+import "fmt"
+
 // 常量
 const PI = 3.14
 
@@ -24,18 +26,22 @@ func main() {
 
 	// 生成自然数
 	go func() {
+		fmt.Println("naturals 开始	")
+		defer close(naturals)
 		for i := 0; i < 10; i++ {
 			naturals <- i
 		}
-		close(naturals)
+		fmt.Println("naturals 结束")
 	}()
 
 	// 计算自然数的平方
 	go func() {
+		fmt.Println("squares 开始")
+		defer close(squares)
 		for natural := range naturals {
 			squares <- natural * natural
 		}
-		close(squares)
+		fmt.Println("squares 结束")
 	}()
 
 	for square := range squares {

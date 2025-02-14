@@ -13,4 +13,6 @@ type User struct {
 	NickName string `json:"nick_name"`
 
 	CTime time.Time
+
+	WechatInfo WechatInfo
 }
